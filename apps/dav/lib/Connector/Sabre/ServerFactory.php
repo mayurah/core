@@ -28,6 +28,7 @@
 
 namespace OCA\DAV\Connector\Sabre;
 
+use OC\Files\Node\Folder;
 use OCA\DAV\Files\BrowserErrorPagePlugin;
 use OCP\Files\Mount\IMountManager;
 use OCP\IConfig;
@@ -124,18 +125,31 @@ class ServerFactory {
 		// wait with registering these until auth is handled and the filesystem is setup
 		$server->on('beforeMethod', function () use ($server, $objectTree, $viewCallBack) {
 			// ensure the skeleton is copied
+			// Try to obtain User Folder
 			$userFolder = \OC::$server->getUserFolder();
-			
+
 			/** @var \OC\Files\View $view */
 			$view = $viewCallBack($server);
-			$rootInfo = $view->getFileInfo('');
+			if (!is_null($userFolder)) {
+				// User folder exists and user is active and not anonymous
+				$rootInfo = $userFolder->getFileInfo();
+			} else {
+				// User is anonymous or inactive, we need to get root info
+				$rootInfo = $view->getFileInfo('');
+			}
 
-			// Create ownCloud Dir
+			// Create ownCloud Root
 			if ($rootInfo->getType() === 'dir') {
 				$root = new \OCA\DAV\Connector\Sabre\Directory($view, $rootInfo, $objectTree);
+				// Link Root Folder with Directory node to have single point of access
+				if (!is_null($userFolder) && $userFolder instanceof Folder) {
+					// Prevent to link userFolder to Directory in case user folder is null (link share)
+					$userFolder->linkDirectoryNode($root);
+				}
 			} else {
 				$root = new \OCA\DAV\Connector\Sabre\File($view, $rootInfo);
 			}
+
 			$objectTree->init($root, $view, $this->mountManager);
 
 			$server->addPlugin(

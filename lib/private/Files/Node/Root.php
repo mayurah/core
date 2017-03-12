@@ -73,6 +73,11 @@ class Root extends Folder implements IRootFolder {
 	private $user;
 
 	/**
+	 * @var File|Folder[] $nodeCache
+	 */
+	private $nodeCache;
+
+	/**
 	 * @param \OC\Files\Mount\Manager $manager
 	 * @param \OC\Files\View $view
 	 * @param \OC\User\User|null $user
@@ -117,6 +122,8 @@ class Root extends Folder implements IRootFolder {
 	 * @param Node[] $arguments
 	 */
 	public function emit($scope, $method, $arguments = []) {
+		// Emit should invalidate the node cache
+		unset($this->nodeCache);
 		$this->emitter->emit($scope, $method, $arguments);
 	}
 
@@ -126,6 +133,8 @@ class Root extends Folder implements IRootFolder {
 	 * @param array $arguments
 	 */
 	public function mount($storage, $mountPoint, $arguments = []) {
+		// Mount should invalidate the node cache
+		unset($this->nodeCache);
 		$mount = new MountPoint($storage, $mountPoint, $arguments);
 		$this->mountManager->addMount($mount);
 	}
@@ -166,6 +175,8 @@ class Root extends Folder implements IRootFolder {
 	 * @param \OC\Files\Mount\MountPoint $mount
 	 */
 	public function unMount($mount) {
+		// Unmount should invalidate the node cache
+		unset($this->nodeCache);
 		$this->mountManager->remove($mount);
 	}
 
@@ -176,18 +187,21 @@ class Root extends Folder implements IRootFolder {
 	 * @return string
 	 */
 	public function get($path) {
-		$path = $this->normalizePath($path);
-		if ($this->isValidPath($path)) {
-			$fullPath = $this->getFullPath($path);
-			$fileInfo = $this->view->getFileInfo($fullPath);
-			if ($fileInfo) {
-				return $this->createNode($fullPath, $fileInfo);
+		$normalizedPath = $this->normalizePath($path);
+		if (!isset($this->nodeCache[$normalizedPath])){
+			if ($this->isValidPath($normalizedPath)) {
+				$fullPath = $this->getFullPath($normalizedPath);
+				$fileInfo = $this->view->getFileInfo($fullPath);
+				if ($fileInfo) {
+					$this->nodeCache[$normalizedPath] = $this->createNode($fullPath, $fileInfo);
+				} else {
+					throw new NotFoundException($normalizedPath);
+				}
 			} else {
-				throw new NotFoundException($path);
+				throw new NotPermittedException();
 			}
-		} else {
-			throw new NotPermittedException();
 		}
+		return $this->nodeCache[$normalizedPath];
 	}
 
 	//most operations can't be done on the root
@@ -336,6 +350,9 @@ class Root extends Folder implements IRootFolder {
 	 * @return \OCP\Files\Folder
 	 */
 	public function getUserFolder($userId) {
+		// Initialize empty node cache for this user folder
+		unset($this->nodeCache);
+
 		$userObject = \OC::$server->getUserManager()->get($userId);
 
 		if (is_null($userObject)) {

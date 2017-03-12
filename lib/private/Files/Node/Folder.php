@@ -32,6 +32,23 @@ use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
 
 class Folder extends Node implements \OCP\Files\Folder {
+
+	/**
+	 * @var \OCA\DAV\Connector\Sabre\Directory $directoryNode
+	 */
+	private $directoryNode = null;
+
+	/**
+	 * Links Directory to this Folder
+	 *
+	 * @param \OCA\DAV\Connector\Sabre\Directory $sabreNode
+	 */
+	public function linkDirectoryNode($sabreNode) {
+		if  ($sabreNode instanceof \OCA\DAV\Connector\Sabre\Directory) {
+			$this->directoryNode = $sabreNode;
+		}
+	}
+
 	/**
 	 * Creates a Folder that represents a non-existing path
 	 *
@@ -89,9 +106,20 @@ class Folder extends Node implements \OCP\Files\Folder {
 	 * @return Node[]
 	 */
 	public function getDirectoryListing() {
-		$folderContent = $this->view->getDirectoryContent($this->path);
+		// This folder might have DirectoryNode linked e.g. Root Node
+		if (!is_null($this->directoryNode)) {
+			// CorePlugin Probably already prefetched directory contents in Directory, get children and extract FileInfo
+			$folderNodes = $this->directoryNode->getChildren();
+			foreach ($folderNodes as $childNode) {
+				$folderContent[] = $childNode->getFileInfo();
+			}
+		} else {
+			// If directoryNode is null, it means that we need to fetch it directly from View
+			// To avoid this, please see $this->linkDirectoryNode($sabreNode)
+			$folderContent = $this->view->getDirectoryContent($this->path);
+		}
 
-		return array_map(function(FileInfo $info) {
+		return array_map(function (FileInfo $info) {
 			if ($info->getMimetype() === 'httpd/unix-directory') {
 				return new Folder($this->root, $this->view, $info->getPath(), $info);
 			} else {
@@ -99,7 +127,6 @@ class Folder extends Node implements \OCP\Files\Folder {
 			}
 		}, $folderContent);
 	}
-
 	/**
 	 * @param string $path
 	 * @param FileInfo $info
@@ -308,6 +335,7 @@ class Folder extends Node implements \OCP\Files\Folder {
 			$nonExisting = new NonExistingFolder($this->root, $this->view, $this->path, $fileInfo);
 			$this->root->emit('\OC\Files', 'postDelete', [$nonExisting]);
 			$this->exists = false;
+			$this->directoryNode = null;
 		} else {
 			throw new NotPermittedException('No delete permission for path ' . $this->getFullPath($this->path));
 		}

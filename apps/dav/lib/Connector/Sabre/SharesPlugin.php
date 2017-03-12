@@ -168,11 +168,11 @@ class SharesPlugin extends \Sabre\DAV\ServerPlugin {
 			&& $propFind->getDepth() !== 0
 			&& !is_null($propFind->getStatus(self::SHARETYPES_PROPERTYNAME))
 		) {
-			$folderNode = $this->userFolder->get($sabreNode->getPath(), true);
-			$children = $folderNode->getDirectoryListing(true);
+			$folderNode = $this->userFolder->get($sabreNode->getPath());
+			$children = $folderNode->getDirectoryListing();
 
 			// Get ID of parent folder
-			$folderNodeID = intval($folderNode->getId());
+			$folderNodeID = $folderNode->getId();
 			$nodeIdsArray = [$folderNodeID];
 
 			// Initialize share types array for this node in case there would be no shares for this node
@@ -187,7 +187,7 @@ class SharesPlugin extends \Sabre\DAV\ServerPlugin {
 				}
 
 				// Put node ID into an array and initialize cache for it
-				$nodeId = intval($childNode->getId());
+				$nodeId = $childNode->getId();
 				array_push($nodeIdsArray, $nodeId);
 				
 				// Initialize share types array for this node in case there would be no shares for this node

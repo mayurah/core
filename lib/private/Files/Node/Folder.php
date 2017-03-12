@@ -32,7 +32,12 @@ use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
 
 class Folder extends Node implements \OCP\Files\Folder {
-		
+
+	/**
+	 * @var FileInfo[]: Example { '/test/files/' => FileInfo, '/test/files/test' => FileInfo }[2]
+	 */
+	private $directoryContentsCache;
+
 	/**
 	 * Creates a Folder that represents a non-existing path
 	 *
@@ -89,12 +94,10 @@ class Folder extends Node implements \OCP\Files\Folder {
 	 * @throws \OCP\Files\NotFoundException
 	 * @return Node[]
 	 */
-	public function getDirectoryListing($cached = false) {
-		if ($cached) {
-			// Folder will try to obtain entry from cache
-			$folderContent = $this->view->getDirectoryContentFromCache($this->path);
-		} else {
-			$folderContent = $this->view->getDirectoryContent($this->path);
+	public function getDirectoryListing() {
+		// Get directory contents from either cache or by fetching it
+		if (!isset($this->directoryContentsCache[$this->path])) {
+			$this->directoryContentsCache[$this->path] = $this->view->getDirectoryContent($this->path);
 		}
 
 		return array_map(function(FileInfo $info) {
@@ -103,7 +106,7 @@ class Folder extends Node implements \OCP\Files\Folder {
 			} else {
 				return new File($this->root, $this->view, $info->getPath(), $info);
 			}
-		}, $folderContent);
+		}, $this->directoryContentsCache[$this->path]);
 	}
 
 	/**
@@ -131,12 +134,9 @@ class Folder extends Node implements \OCP\Files\Folder {
 	 * @return \OC\Files\Node\Node
 	 * @throws \OCP\Files\NotFoundException
 	 */
-	public function get($path, $cached = false) {
-		if ($cached) {
-			return $this->root->getCached($this->getFullPath($path));
-		} else {
-			return $this->root->get($this->getFullPath($path));
-		}
+	public function get($path) {
+		// Get the node from either cache or by fetching it
+		return $this->root->get($this->getFullPath($path));
 	}
 
 	/**

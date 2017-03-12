@@ -97,22 +97,22 @@ class CommentPropertiesPlugin extends ServerPlugin {
 			&& $propFind->getDepth() !== 0
 			&& !is_null($propFind->getStatus(self::PROPERTY_NAME_UNREAD))) {
 
-			$folderNode = $this->userFolder->get($node->getPath(), true);
+			$folderNode = $this->userFolder->get($node->getPath());
 
 			// Get ID of parent folder
-			$folderNodeID = intval($folderNode->getId());
+			$folderNodeID = $folderNode->getId();
 			$nodeIdsArray = [$folderNodeID];
 			$this->numberOfCommentsForNodes[$folderNodeID] = 0;
 
 			// Get IDs for all children of the parent folder
-			$children = $folderNode->getDirectoryListing(true);
+			$children = $folderNode->getDirectoryListing();
 			foreach ($children as $childNode) {
 				if (!($childNode instanceof \OCP\Files\File) &&
 					!($childNode instanceof \OCP\Files\Folder)) {
 					return;
 				}
 				// Put node ID into an array
-				$nodeId = intval($childNode->getId());
+				$nodeId = $childNode->getId();
 				array_push($nodeIdsArray, $nodeId);
 				$this->numberOfCommentsForNodes[$nodeId] = 0;
 			}

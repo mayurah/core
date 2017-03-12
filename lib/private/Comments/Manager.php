@@ -369,18 +369,9 @@ class Manager implements ICommentsManager {
 	}
 
 	/**
-	 * Returns number of unread messages for specified nodeIDs, if there are any unread comments
+	 * Returns number of unread messages for specified nodeIDs, if there are any unread comments. For more details refer to interface description
 	 *
-	 * SELECT C.object_id, COUNT(C.object_id) FROM oc_comments C
-	 * 	WHERE C.object_id IN('79', '80', '34', '36', '38', '33')
-	 * 	AND C.object_id NOT IN(
-	 * 		SELECT C.object_id FROM oc_comments_read_markers CRM
-	 * 			WHERE C.object_id = CRM.object_id
-	 * 			AND CRM.user_id = 'receiver2'
-	 * 			AND CRM.marker_datetime > C.creation_timestamp)
-	 * GROUP BY C.object_id;
-	 *
-	 * @param string $objectType string the object type, e.g. 'files'
+	 * @param string $objectType string the object type
 	 * @param int[] $objectIds NodeIDs that may be returned
 	 * @param IUser $user
 	 * @return int[] $unreadCountsForNodes hash table
@@ -393,12 +384,11 @@ class Manager implements ICommentsManager {
 		$unreadCountsForNodes = array();
 		$objectIdChunks = array_chunk($objectIds, 100);
 		foreach ($objectIdChunks as $objectIdChunk) {
-
 			// Fetch only records from oc_comments which are in specified int[] NodeIDs array and satisfy specified $objectType
-			$qbMain->selectAlias('c.object_id', 'id')->selectAlias($qbMain->createFunction('COUNT(c.object_id)'), 'count')
+			$qbMain->selectAlias('object_id', 'id')->selectAlias($qbMain->createFunction('COUNT(`object_id`)'), 'count')
 				->from('comments', 'c')
-				->where($qbMain->expr()->eq('c.object_type', $qbMain->createParameter('type')))
-				->andWhere($qbMain->expr()->in('c.object_id', $qbMain->createParameter('object_ids')))
+				->where($qbMain->expr()->eq('object_type', $qbMain->createParameter('type')))
+				->andWhere($qbMain->expr()->in('object_id', $qbMain->createParameter('object_ids')))
 				->setParameter('type', $objectType)
 				->setParameter('object_ids', $objectIdChunk, IQueryBuilder::PARAM_INT_ARRAY);
 
@@ -411,10 +401,12 @@ class Manager implements ICommentsManager {
 				->andWhere($qbMain->expr()->gte('crm.marker_datetime', 'c.creation_timestamp'))
 				->andWhere($qbMain->expr()->eq('c.object_id', 'crm.object_id'));
 			$qbMain->setParameter('crm_user_id', $user->getUID(), IQueryBuilder::PARAM_STR);
-			$qbMain->andWhere($qbMain->expr()->notIn('c.object_id', $qbMain->createFunction($qbSup->getSQL())));
+
+			// Add Inner Select into the main query in NOT IN() clause
+			$qbMain->andWhere($qbMain->expr()->notIn('object_id', $qbMain->createFunction($qbSup->getSQL())));
 
 			// We need groupby for count function
-			$qbMain->groupBy('c.object_id');
+			$qbMain->groupBy('object_id');
 
 			$cursor = $qbMain->execute();
 

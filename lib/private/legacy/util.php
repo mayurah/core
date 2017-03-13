@@ -221,6 +221,11 @@ class OC_Util {
 			'["guests"]'
 		), true);
 
+
+		if ($readOnlyGroups === null) {
+			$readOnlyGroups = ['guests'];
+		}
+
 		$userGroups = array_keys(
 			\OC::$server->getGroupManager()->getUserIdGroups($user)
 		);

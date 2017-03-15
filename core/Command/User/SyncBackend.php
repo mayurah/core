@@ -61,7 +61,7 @@ class SyncBackend extends Command {
 			->addArgument(
 				'backend-class',
 				InputArgument::OPTIONAL,
-				'The php class name - e.g. OCA\User_LDAP\User_LDAP. You can use the option --list to list all known backend classes'
+				'The php class name - e.g. "OCA\User_LDAP\User_LDAP". Please wrap the class name into double quotes. You can use the option --list to list all known backend classes'
 			)
 			->addOption('list', 'l', InputOption::VALUE_NONE, 'list all known backend classes');
 	}
@@ -75,6 +75,10 @@ class SyncBackend extends Command {
 			return 0;
 		}
 		$backendClassName = $input->getArgument('backend-class');
+		if (is_null($backendClassName)) {
+			$output->writeln("<error>No backend class name given. Please run ./occ help user:sync to understand how this command works.</error>");
+			return 1;
+		}
 		$backend = $this->getBackend($backendClassName);
 		if (is_null($backend)) {
 			$output->writeln("<error>The backend <$backendClassName> does not exist. Did you miss to enable the app?</error>");
